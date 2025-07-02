@@ -31,10 +31,8 @@ const modChart=new Chart(ctx,{
   ]},
   options:{
     plugins:{legend:{display:false}},
-    scales:{
-      x:{display:false},
-      y:{ticks:{color:getCSS('--fg')},grid:{color:'rgba(255,255,255,0.08)'}}
-    },
+    scales:{x:{display:false},
+            y:{ticks:{color:getCSS('--fg')},grid:{color:'rgba(255,255,255,0.08)'}}},
     responsive:true,maintainAspectRatio:false
   }
 });
@@ -49,27 +47,29 @@ btn.addEventListener('click',()=>{
   curAttS.textContent=A0; curDefS.textContent=D0; resDiv.classList.remove('hidden');
 
   /* containers */
-  const attPerRoll=[], defPerRoll=[];
-  const outcomes=new Map();        // "a|d" -> count
-  const attRemArr=[];              // for risk index σ
+  const attPerRoll=[], defPerRoll=[];          // mode chart
+  const outcomes=new Map();                    // "a|d" -> count
+  const attRemArr=[];                          // for σ
 
   for(let s=0;s<N;s++){
-    let a=A0,d=D0,rollIx=0;
-    while(a>0&&d>0){
-      const ad=Math.min(3,a), dd=Math.min(3,d),   // 3-dice defenders
-            ar=[...Array(ad)].map(roll).sort((x,y)=>y-x),
-            dr=[...Array(dd)].map(roll).sort((x,y)=>y-x),
-            fights=Math.min(ad,dd);
+    let a=A0, d=D0, rollIx=0;
+    /* attacker must have >1 tank to attack */
+    while(a>1 && d>0){
+      const ad=Math.min(3, a-1);               // attacker rolls at most 3 dice, but keeps 1 tank behind
+      const dd=Math.min(3, d);                 // defender can roll up to 3
+      const ar=[...Array(ad)].map(roll).sort((x,y)=>y-x);
+      const dr=[...Array(dd)].map(roll).sort((x,y)=>y-x);
+      const fights=Math.min(ad,dd);
 
       for(let i=0;i<fights;i++){
         if(attPerRoll.length<=rollIx){attPerRoll.push(new Map());defPerRoll.push(new Map());}
         inc(attPerRoll[rollIx],a); inc(defPerRoll[rollIx],d);
 
         if(ar[i]>dr[i]) d--; else a--;
-        rollIx++; if(a===0||d===0) break;
+        rollIx++; if(a<=1 || d===0) break;     // attacker stops if only 1 left
       }
     }
-    inc(outcomes,`${a}|${d}`);
+    inc(outcomes,`${a}|${d}`);                 // a may be 1 or 0
     attRemArr.push(a);
   }
 
@@ -90,10 +90,11 @@ btn.addEventListener('click',()=>{
   modChart.data.datasets[1].data=modeD;
   modChart.update();
 
-  /* risk index: σ(attacker remaining)/initial attackers */
+  /* 20× Risk index = 20·σ / initial attackers */
   const μ=attRemArr.reduce((s,x)=>s+x,0)/N;
   const σ=Math.sqrt(attRemArr.reduce((s,x)=>s+(x-μ)**2,0)/N);
-  riskP.textContent=`Risk index: ${(σ/A0).toFixed(2)}`;
+  const risk=(20*σ/A0).toFixed(2);
+  riskP.textContent=`Risk: ${risk}`;
 });
 
 /* ---------- utils ---------- */
